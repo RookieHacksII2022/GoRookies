@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strings"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/api/iterator"
 )
 
 func commandParse(msgTxt string, keyword string) string {
@@ -40,7 +41,7 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
 		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
 		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-		"<strong>/listQuizzes</strong> - list all ofyour quizzes"
+		"<strong>/listQuizzes</strong> - list all of your quizzes"
 	msg.ParseMode = "HTML"
 
 	if _, err := bot.Send(msg); err != nil {
@@ -67,6 +68,11 @@ func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeybo
 }
 
 func main() {
+	// check for env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	// fmt.Println("var1 = ", reflect.TypeOf(optionsKeyboard))
 
@@ -190,6 +196,46 @@ func main() {
 				switch update.Message.Command() {
 				case "help":
 					sendHelpMessage(update.Message.Chat.ID, bot)
+				case "addQuiz":
+
+					quizTitle := Parser(update.Message.Text)
+
+					fmt.Println("SHOW QUIZ TITLE: " + quizTitle)
+
+					if len(quizTitle) < 1 {
+
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Quiz title cannot be empty, please try again!",
+							bot,
+						)
+
+					} else {
+
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle)
+						_, err := docRef.Get(ctx)
+						if err == nil {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"Quiz title exists",
+								bot,
+							)
+						} else {
+							_, _ = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle).Set(ctx, map[string]interface{}{
+								"numQns": "0",
+								"score":  "none",
+							})
+
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"New Quiz Title: "+quizTitle+" is added into your collection.",
+								bot,
+							)
+						}
+
+					}
+					botState = "idle"
+
 				case "addQns":
 					// parse quiz name
 					quizName = commandParse(update.Message.Text, "addQns")
@@ -249,6 +295,32 @@ func main() {
 								"e.g. `/addQns demo quiz`",
 							bot,
 						)
+					}
+				case "listQuizzes":
+					var docNames []string
+					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
+					for {
+						doc, err := iter.Next()
+						if err == iterator.Done {
+							break
+						}
+						if err != nil {
+							//return err
+						}
+						docNames = append(docNames, doc.Ref.ID)
+					}
+
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+					msg.Text = "Here is the list of your quizzes: \n" 
+					for i, s := range docNames {
+						msg.Text += "- " + s + "\n"
+						fmt.Println(i, s)
+					}
+					msg.ParseMode = "HTML" 
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
 					}
 
 				default:
@@ -368,4 +440,9 @@ func main() {
 		}
 
 	}
+}
+
+func Parser(str string) string {
+	arr := strings.SplitN(str, " ", 2)
+	return arr[1]
 }
