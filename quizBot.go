@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -54,14 +55,20 @@ var yesNoKeyboard = tgbotapi.NewReplyKeyboard(
 	),
 )
 
-var optionsKeyboard = tgbotapi.NewReplyKeyboard(
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("Exit"),
-		tgbotapi.NewKeyboardButton("Cancel"),
-	),
-)
+func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeyboardMarkup {
+	var optionsKeyboard = tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(btnTxt1),
+			tgbotapi.NewKeyboardButton(btnTxt2),
+		),
+	)
+
+	return optionsKeyboard
+}
 
 func main() {
+
+	// fmt.Println("var1 = ", reflect.TypeOf(optionsKeyboard))
 
 	// init firebase client
 	opt := option.WithCredentialsFile("firebase_service_acct.json")
@@ -103,6 +110,10 @@ func main() {
 	var currentUsername string = ""
 	var currentUserID string = ""
 	var quizName string = ""
+
+	questionsMap1 := make(map[string]string)
+
+	var questionText = ""
 
 	var numQns int = 0
 	var scoreInt int = 0
@@ -212,7 +223,7 @@ func main() {
 								"Press <strong>Cancel</strong> to quit without saving\n" +
 								"Please input new question:"
 							msg.ParseMode = "HTML"
-							msg.ReplyMarkup = optionsKeyboard
+							msg.ReplyMarkup = createTwoBtnRowKeyboard("Exit", "Cancel")
 
 							if _, err := bot.Send(msg); err != nil {
 								log.Panic(err)
@@ -251,19 +262,30 @@ func main() {
 				}
 
 			case "addQns_Qn":
-				// fmt.Println("\n\nIN CASE: addQns_Qn")
-				// fmt.Println(len(update.Message.Text))
-
 				switch update.Message.Text {
 				case "Exit":
 					// to save changes and end
-					// TODO: Save all changes
 
-					sendSimpleMsg(
-						update.Message.Chat.ID,
-						"Questions added to quiz!",
-						bot,
-					)
+					// var
+
+					// for key, value := range questionsMap1 {
+
+					// }
+
+					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, questionsMap1, firestore.MergeAll)
+
+					if err != nil {
+						// Handle any errors in an appropriate way, such as returning them.
+						log.Printf("An error has occurred: %s", err)
+					}
+
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Questions added to quiz!"
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
 				case "Cancel":
 
 					// to quit without saving
@@ -281,19 +303,34 @@ func main() {
 				default:
 					if inputExpected == "qn" {
 						// input expected is qn
+						questionText = update.Message.Text
+						inputExpected = "ans"
 
-						// add qn to array
-					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please input the answer:",
+							bot,
+						)
+
+					} else if inputExpected == "ans" {
 						//input expected is answer
 
 						// add ans to array
+						questionsMap1[questionText] = update.Message.Text
+						inputExpected = "qn"
+
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please input the next question:",
+							bot,
+						)
+					} else {
+						log.Panic("inputExpected should be qn or ans")
 					}
 
 				}
 
 			case "addQns_cancel":
-				// fmt.Println("\n\nIN CASE: addQns_cancel")
-
 				switch update.Message.Text {
 				case "Yes":
 					// cancel all changes
@@ -308,9 +345,13 @@ func main() {
 					botState = "addQns_Qn"
 
 				case "No":
+
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.Text = ""
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					if inputExpected == "qn" {
+						msg.Text = "Please input next question"
+					}
+
+					msg.ReplyMarkup = createTwoBtnRowKeyboard("Exit", "Cancel")
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
