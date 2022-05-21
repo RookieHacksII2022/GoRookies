@@ -134,42 +134,44 @@ func main() {
 
 		}
 
-		if botState == "idle" {
-			if !update.Message.IsCommand() { // ignore any non-command Messages
-				continue
-			}
-
-			switch update.Message.Command() {
-			case "help":
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-				msg.Text = "I understand the following commands: \n" +
-					"<strong>/help</strong>  - get list of commands\n" +
-					"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
-					"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
-					"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
-					"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-					"<strong>/listQuizzes</strong> - list all ofyour quizzes"
-				msg.ParseMode = "HTML"
-
-				if _, err := bot.Send(msg); err != nil {
-					log.Panic(err)
+		// check if message is from current user
+		if currentUserID == fmt.Sprint(update.Message.From.ID) {
+			if botState == "idle" {
+				if !update.Message.IsCommand() { // ignore any non-command Messages
+					continue
 				}
 
-			case "addQns":
-				// check if message is from current user
-				if currentUserID == fmt.Sprint(update.Message.From.ID) {
+				switch update.Message.Command() {
+				case "help":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "I understand the following commands: \n" +
+						"<strong>/help</strong>  - get list of commands\n" +
+						"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
+						"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
+						"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
+						"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
+						"<strong>/listQuizzes</strong> - list all ofyour quizzes"
+					msg.ParseMode = "HTML"
 
-				}
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
 
-				// if not ignore other users
+				case "addQns":
+					// parse quiz name
+					quizName =: commandParse(update.Message.Text)
 
-			default:
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-				msg.Text = "Sorry I don't understand you! Type <strong>/help</strong> for a list of commands!"
-				msg.ParseMode = "HTML"
 
-				if _, err := bot.Send(msg); err != nil {
-					log.Panic(err)
+					// if not ignore other users
+
+				default:
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Sorry I don't understand you! Type <strong>/help</strong> for a list of commands!"
+					msg.ParseMode = "HTML"
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
 				}
 			}
 		}
