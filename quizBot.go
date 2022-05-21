@@ -31,7 +31,23 @@ func sendSimpleMsg(chatID int64, msgTxt string, bot *tgbotapi.BotAPI) {
 	}
 }
 
-var optionKeyboard = tgbotapi.NewReplyKeyboard(
+func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
+	msg := tgbotapi.NewMessage(chatID, "")
+	msg.Text = "I understand the following commands: \n" +
+		"<strong>/help</strong>  - get list of commands\n" +
+		"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
+		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
+		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
+		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
+		"<strong>/listQuizzes</strong> - list all ofyour quizzes"
+	msg.ParseMode = "HTML"
+
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+	}
+}
+
+var yesNoKeyboard = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("Yes"),
 	),
@@ -73,13 +89,18 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	var botState string = "inactive"
-	// var botState string = "idle"
 
 	// inactive -> current user has not be logged by bot. User is otherwise logged by the bot
 	// idle -> user has been logged by bot and waiting command
 
 	var currentUsername string = ""
 	var currentUserID string = ""
+	var quizName string = ""
+
+	var numQns int = 0
+	var scoreInt int = 0
+
+	fmt.Println(numQns, scoreInt)
 
 	for update := range updates {
 		// ignore non-Message updates
@@ -90,11 +111,9 @@ func main() {
 		currentUsername = update.Message.From.UserName
 		currentUserID = fmt.Sprint(update.Message.From.ID)
 
-		fmt.Printf("[%s, %s] %s", currentUsername, currentUserID, update.Message.Text)
+		fmt.Printf("[%s, %s] %s\n", currentUsername, currentUserID, update.Message.Text)
 
-		if !update.Message.IsCommand() { // ignore any non-command Messages
-			continue
-		} else if update.Message.Command() == "start" {
+		if update.Message.IsCommand() && update.Message.Command() == "start" {
 			// Check if the focus user id is already in the USERS collection, else create new user
 
 			docRef := client.Collection("USERS").Doc(currentUserID)
@@ -152,30 +171,18 @@ func main() {
 		} else if currentUserID == fmt.Sprint(update.Message.From.ID) {
 			// check if message is from current user if not ignore other users
 
-			if botState == "idle" {
+			switch botState {
+			case "idle":
 				if !update.Message.IsCommand() { // ignore any non-command Messages
 					continue
 				}
 
 				switch update.Message.Command() {
 				case "help":
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.Text = "I understand the following commands: \n" +
-						"<strong>/help</strong>  - get list of commands\n" +
-						"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
-						"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
-						"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
-						"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-						"<strong>/listQuizzes</strong> - list all ofyour quizzes"
-					msg.ParseMode = "HTML"
-
-					if _, err := bot.Send(msg); err != nil {
-						log.Panic(err)
-					}
-
+					sendHelpMessage(update.Message.Chat.ID, bot)
 				case "addQns":
 					// parse quiz name
-					quizName := commandParse(update.Message.Text, "addQns")
+					quizName = commandParse(update.Message.Text, "addQns")
 
 					fmt.Println("SEARCHING FOR QUIZ: " + quizName)
 
@@ -198,13 +205,46 @@ func main() {
 
 						if doc.Exists() {
 							// Handle document existing here
-							fmt.Println("User found")
+							fmt.Println("Doc found:")
+
+							var optionsKeyboard = tgbotapi.NewReplyKeyboard(
+								tgbotapi.NewKeyboardButtonRow(
+									tgbotapi.NewKeyboardButton("Exit"),
+									tgbotapi.NewKeyboardButton("Cancel"),
+								),
+							)
+
+							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+							msg.Text = "Quiz titled " + quizName + " found!\n" +
+								"Press <strong>Exit</strong> to save changes and end\n" +
+								"Press <strong>Cancel</strong> to quit without saving\n" +
+								"Please input new question:"
+							msg.ParseMode = "HTML"
+							msg.ReplyMarkup = optionsKeyboard
+
+							if _, err := bot.Send(msg); err != nil {
+								log.Panic(err)
+							}
+
+							numQns = 0
+
+							botState = "addQns_Qn"
 
 						} else {
-
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"Quiz with name "+quizName+" not found.",
+								bot,
+							)
 						}
 					} else {
-
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please include a quiz name with this command.\n"+
+								"Spaces in the quiz name are allowed.\n"+
+								"e.g. `/addQns demo quiz`",
+							bot,
+						)
 					}
 
 				default:
@@ -216,6 +256,74 @@ func main() {
 						log.Panic(err)
 					}
 				}
+
+			case "addQns_Qn":
+				fmt.Println("\n\nIN CASE: addQns_Qn")
+				fmt.Println(len(update.Message.Text))
+
+				switch update.Message.Text {
+				case "Exit":
+					// to save changes and end
+
+					sendSimpleMsg(
+						update.Message.Chat.ID,
+						"Questions added to quiz!",
+						bot,
+					)
+				case "Cancel":
+
+					// to quit without saving
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Cancel button pressed."
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					msg2 := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg2.Text = "Are you sure you want to <strong>Cancel</strong> update?"
+					msg2.ParseMode = "HTML"
+					msg2.ReplyMarkup = yesNoKeyboard
+
+					if _, err := bot.Send(msg2); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "addQns_cancel"
+
+				default:
+				}
+
+			case "addQns_cancel":
+				fmt.Println("\n\nIN CASE: addQns_cancel")
+
+				switch update.Message.Text {
+				case "Exit":
+					// to save changes and end
+
+					sendSimpleMsg(
+						update.Message.Chat.ID,
+						"Questions added to quiz!",
+						bot,
+					)
+				case "Cancel":
+					// to quit without saving
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Are you sure you want to <strong>Cancel</strong> update?"
+					msg.ParseMode = "HTML"
+					msg.ReplyMarkup = yesNoKeyboard
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+				default:
+				}
+
+			default:
+				sendHelpMessage(update.Message.Chat.ID, bot)
+				fmt.Println("BOT STATE INVALID")
 			}
 		}
 
@@ -226,7 +334,7 @@ func main() {
 		// // add keyboard markup
 		// switch update.Message.Text {
 		// case "open":
-		// 	msg.ReplyMarkup = optionKeyboard
+		// 	msg.ReplyMarkup = yesNoKeyboard
 		// case "close":
 		// 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 		// }
