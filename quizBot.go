@@ -247,6 +247,42 @@ func main() {
 							bot,
 						)
 					}
+					case "tryQuiz": 
+					// parse quiz name
+					quizName = commandParse(update.Message.Text, "tryQuiz")
+					paramCharLen := len(quizName)
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+
+					if paramCharLen > 0 {
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
+						doc, err := docRef.Get(ctx)
+						if doc.Exists() {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"Quiz titled <" + quizName + "> found!\n",
+								bot,
+							) 
+							fmt.Println("num questions")
+							fmt.Println(doc.Data()["numQns"])
+						} 
+
+						if err != nil {
+							msg.Text = "Quiz could not be found. Error in quiz name: " + quizName
+						}
+							
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please include a quiz name with this command.\n"+
+								"Spaces in the quiz name are allowed.\n"+
+								"e.g. `/deleteQuiz demo quiz`",
+							bot,
+						)
+					}
 				case "deleteQuiz": 
 					// parse quiz name
 					quizName = commandParse(update.Message.Text, "deleteQuiz")
