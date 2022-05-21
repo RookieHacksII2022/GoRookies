@@ -16,7 +16,19 @@ import (
 )
 
 func commandParse(msgTxt string, keyword string) string {
-	return strings.Replace(msgTxt, "/"+keyword+" ", "", 1)
+	if strings.Contains(msgTxt, "/"+keyword+" ") {
+		return strings.Replace(msgTxt, "/"+keyword+" ", "", 1)
+	} else {
+		return ""
+	}
+}
+
+func sendSimpleMsg(chatID int64, msgTxt string, bot *tgbotapi.BotAPI) {
+	msg := tgbotapi.NewMessage(chatID, msgTxt)
+
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+	}
 }
 
 var optionKeyboard = tgbotapi.NewReplyKeyboard(
@@ -75,12 +87,15 @@ func main() {
 			continue
 		}
 
+		currentUsername = update.Message.From.UserName
+		currentUserID = fmt.Sprint(update.Message.From.ID)
+
+		fmt.Printf("[%s, %s] %s", currentUsername, currentUserID, update.Message.Text)
+
 		if !update.Message.IsCommand() { // ignore any non-command Messages
 			continue
 		} else if update.Message.Command() == "start" {
 			// Check if the focus user id is already in the USERS collection, else create new user
-			currentUsername = update.Message.From.UserName
-			currentUserID = fmt.Sprint(update.Message.From.ID)
 
 			docRef := client.Collection("USERS").Doc(currentUserID)
 			doc, err := docRef.Get(ctx)
@@ -122,20 +137,21 @@ func main() {
 				}
 			}
 
-			// Return message: "Hello <username>!"
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-			msg.Text = "Hello " + currentUsername + "!"
+			// // Return message: "Hello <username>!"
+			// msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+			// msg.Text = "Hello " + currentUsername + "!"
 
-			if _, err := bot.Send(msg); err != nil {
-				log.Panic(err)
-			}
+			// if _, err := bot.Send(msg); err != nil {
+			// 	log.Panic(err)
+			// }
+
+			sendSimpleMsg(update.Message.Chat.ID, "Hello "+currentUsername+"!", bot)
 
 			botState = "idle"
 
-		}
+		} else if currentUserID == fmt.Sprint(update.Message.From.ID) {
+			// check if message is from current user if not ignore other users
 
-		// check if message is from current user
-		if currentUserID == fmt.Sprint(update.Message.From.ID) {
 			if botState == "idle" {
 				if !update.Message.IsCommand() { // ignore any non-command Messages
 					continue
@@ -159,9 +175,37 @@ func main() {
 
 				case "addQns":
 					// parse quiz name
-					quizName := commandParse(update.Message.Text)
+					quizName := commandParse(update.Message.Text, "addQns")
 
-					// if not ignore other users
+					fmt.Println("SEARCHING FOR QUIZ: " + quizName)
+
+					paramCharLen := len(quizName)
+
+					if paramCharLen > 0 {
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
+						doc, err := docRef.Get(ctx)
+						if err != nil {
+							if status.Code(err) == codes.NotFound {
+								// // Handle document not existing here
+								// _, err := docRef.Set(ctx /* custom object here */)
+								// if err != nil {
+								// 	return err
+								// }
+							} else {
+								// return err
+							}
+						}
+
+						if doc.Exists() {
+							// Handle document existing here
+							fmt.Println("User found")
+
+						} else {
+
+						}
+					} else {
+
+					}
 
 				default:
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
