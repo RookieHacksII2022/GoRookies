@@ -59,8 +59,7 @@ func main() {
 			dt := time.Now()
 			msg.Text = "The current time and date now is " + dt.String()
 		case "copycat":
-			newMsg := strings.Replace(update.Message.Text, "/copycat", "", 1)
-			msg.Text = "Echo back to you" + newMsg
+			msg.Text = "Echo back to you " + parserCopycat(update.Message.Text)
 		default:
 			msg.Text = "I don't know that command"
 		}
@@ -69,4 +68,8 @@ func main() {
 			log.Panic(err)
 		}
 	}
+}
+
+func parserCopycat(str string) string {
+	return strings.Replace(str, "/copycat ", "", 1)
 }
