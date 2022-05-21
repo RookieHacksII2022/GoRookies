@@ -13,6 +13,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/api/iterator"
 )
 
 func commandParse(msgTxt string, keyword string) string {
@@ -245,6 +246,32 @@ func main() {
 								"e.g. `/addQns demo quiz`",
 							bot,
 						)
+					}
+				case "listQuizzes":
+					var docNames []string
+					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
+					for {
+						doc, err := iter.Next()
+						if err == iterator.Done {
+							break
+						}
+						if err != nil {
+							//return err
+						}
+						docNames = append(docNames, doc.Ref.ID)
+					}
+
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+					msg.Text = "Here is the list of your quizzes: \n" 
+					for i, s := range docNames {
+						msg.Text += "- " + s + "\n"
+						fmt.Println(i, s)
+					}
+					msg.ParseMode = "HTML" 
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
 					}
 
 				default:
