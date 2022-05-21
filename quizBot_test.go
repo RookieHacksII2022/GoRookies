@@ -5,10 +5,10 @@ import (
 )
 
 func TestParser(t *testing.T) {
-	originalStr := "/copycat testing"
+	originalStr := "/copycat testing 123"
 	outputStr := Parser(originalStr)
 
 	if outputStr != "testing" {
-		t.Error("Expected: " + "testing 123 but got: " + outputStr)
+		t.Error("Expected: " + "testing but got: " + outputStr)
 	}
 }
