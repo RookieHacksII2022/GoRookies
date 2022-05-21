@@ -159,8 +159,7 @@ func main() {
 
 				case "addQns":
 					// parse quiz name
-					quizName =: commandParse(update.Message.Text)
-
+					quizName := commandParse(update.Message.Text)
 
 					// if not ignore other users
 
