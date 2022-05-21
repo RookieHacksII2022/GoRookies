@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func testParserCopycat(t *testing.T) {
+func TestParserCopycat(t *testing.T) {
 	originalStr := "/copycat testing 123"
 	outputStr := parserCopycat(originalStr)
 

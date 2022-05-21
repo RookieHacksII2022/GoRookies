@@ -9,7 +9,7 @@ jobs:
   build-bot:
     executor:
       name: go/default
-      tag: '1.16'
+      tag: '1.18'
     steps:
       - checkout
       - go/load-cache
@@ -18,7 +18,7 @@ jobs:
   test-bot:
     executor:
       name: go/default
-      tag: '1.16'
+      tag: '1.18'
     steps:
       - checkout
       - go/load-cache
