@@ -280,6 +280,9 @@ func main() {
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
 					}
+
+					botState = "idle"
+
 				case "Cancel":
 
 					// to quit without saving
@@ -337,7 +340,7 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "addQns_Qn"
+					botState = "idle"
 
 				case "No":
 
