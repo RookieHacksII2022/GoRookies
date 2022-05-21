@@ -13,6 +13,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/api/iterator"
 )
 
 func commandParse(msgTxt string, keyword string) string {
@@ -280,7 +281,6 @@ func main() {
 							bot,
 						)
 					}
-
 				case "listQuizzes":
 					var docNames []string
 					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
@@ -405,4 +405,9 @@ func main() {
 		// 	log.Panic(err)
 		// }
 	}
+}
+
+func Parser(str string) string {
+	arr := strings.Split(str, " ")
+	return arr[1]
 }
