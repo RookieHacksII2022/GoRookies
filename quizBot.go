@@ -50,9 +50,14 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 var yesNoKeyboard = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("Yes"),
-	),
-	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("No"),
+	),
+)
+
+var optionsKeyboard = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Exit"),
+		tgbotapi.NewKeyboardButton("Cancel"),
 	),
 )
 
@@ -92,6 +97,8 @@ func main() {
 
 	// inactive -> current user has not be logged by bot. User is otherwise logged by the bot
 	// idle -> user has been logged by bot and waiting command
+
+	var inputExpected string = "none"
 
 	var currentUsername string = ""
 	var currentUserID string = ""
@@ -156,14 +163,6 @@ func main() {
 				}
 			}
 
-			// // Return message: "Hello <username>!"
-			// msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-			// msg.Text = "Hello " + currentUsername + "!"
-
-			// if _, err := bot.Send(msg); err != nil {
-			// 	log.Panic(err)
-			// }
-
 			sendSimpleMsg(update.Message.Chat.ID, "Hello "+currentUsername+"!", bot)
 
 			botState = "idle"
@@ -207,13 +206,6 @@ func main() {
 							// Handle document existing here
 							fmt.Println("Doc found:")
 
-							var optionsKeyboard = tgbotapi.NewReplyKeyboard(
-								tgbotapi.NewKeyboardButtonRow(
-									tgbotapi.NewKeyboardButton("Exit"),
-									tgbotapi.NewKeyboardButton("Cancel"),
-								),
-							)
-
 							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 							msg.Text = "Quiz titled " + quizName + " found!\n" +
 								"Press <strong>Exit</strong> to save changes and end\n" +
@@ -229,6 +221,7 @@ func main() {
 							numQns = 0
 
 							botState = "addQns_Qn"
+							inputExpected = "qn"
 
 						} else {
 							sendSimpleMsg(
@@ -258,12 +251,13 @@ func main() {
 				}
 
 			case "addQns_Qn":
-				fmt.Println("\n\nIN CASE: addQns_Qn")
-				fmt.Println(len(update.Message.Text))
+				// fmt.Println("\n\nIN CASE: addQns_Qn")
+				// fmt.Println(len(update.Message.Text))
 
 				switch update.Message.Text {
 				case "Exit":
 					// to save changes and end
+					// TODO: Save all changes
 
 					sendSimpleMsg(
 						update.Message.Chat.ID,
@@ -273,14 +267,6 @@ func main() {
 				case "Cancel":
 
 					// to quit without saving
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.Text = "Cancel button pressed."
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-
-					if _, err := bot.Send(msg); err != nil {
-						log.Panic(err)
-					}
-
 					msg2 := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg2.Text = "Are you sure you want to <strong>Cancel</strong> update?"
 					msg2.ParseMode = "HTML"
@@ -293,30 +279,44 @@ func main() {
 					botState = "addQns_cancel"
 
 				default:
+					if inputExpected == "qn" {
+						// input expected is qn
+
+						// add qn to array
+					} else {
+						//input expected is answer
+
+						// add ans to array
+					}
+
 				}
 
 			case "addQns_cancel":
-				fmt.Println("\n\nIN CASE: addQns_cancel")
+				// fmt.Println("\n\nIN CASE: addQns_cancel")
 
 				switch update.Message.Text {
-				case "Exit":
-					// to save changes and end
-
-					sendSimpleMsg(
-						update.Message.Chat.ID,
-						"Questions added to quiz!",
-						bot,
-					)
-				case "Cancel":
-					// to quit without saving
+				case "Yes":
+					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.Text = "Are you sure you want to <strong>Cancel</strong> update?"
-					msg.ParseMode = "HTML"
-					msg.ReplyMarkup = yesNoKeyboard
+					msg.Text = "Changes to quiz cancelled."
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
 					}
+
+					botState = "addQns_Qn"
+
+				case "No":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = ""
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "addQns_Qn"
 
 				default:
 				}
@@ -325,23 +325,8 @@ func main() {
 				sendHelpMessage(update.Message.Chat.ID, bot)
 				fmt.Println("BOT STATE INVALID")
 			}
+
 		}
 
-		// // create new message text
-		// msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-		// msg.ReplyToMessageID = update.Message.MessageID
-
-		// // add keyboard markup
-		// switch update.Message.Text {
-		// case "open":
-		// 	msg.ReplyMarkup = yesNoKeyboard
-		// case "close":
-		// 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-		// }
-
-		// // message error handling
-		// if _, err := bot.Send(msg); err != nil {
-		// 	log.Panic(err)
-		// }
 	}
 }
