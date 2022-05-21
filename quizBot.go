@@ -215,7 +215,7 @@ func main() {
 
 						if doc.Exists() {
 							// Handle document existing here
-							fmt.Println("Doc found:")
+							fmt.Println("Doc found:", doc.Ref.ID)
 
 							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 							msg.Text = "Quiz titled " + quizName + " found!\n" +
@@ -229,7 +229,7 @@ func main() {
 								log.Panic(err)
 							}
 
-							numQns = 0
+							numQns = int(doc.Data()["numQns"].(int64))
 
 							botState = "addQns_Qn"
 							inputExpected = "qn"
@@ -264,13 +264,7 @@ func main() {
 			case "addQns_Qn":
 				switch update.Message.Text {
 				case "Exit":
-					// to save changes and end
-
-					// var
-
-					// for key, value := range questionsMap1 {
-
-					// }
+					questionsMap1["numQns"] = fmt.Sprint(numQns)
 
 					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, questionsMap1, firestore.MergeAll)
 
@@ -317,6 +311,7 @@ func main() {
 
 						// add ans to array
 						questionsMap1[questionText] = update.Message.Text
+						numQns++
 						inputExpected = "qn"
 
 						sendSimpleMsg(
