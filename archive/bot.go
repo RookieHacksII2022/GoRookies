@@ -1,7 +1,7 @@
-package main
+package bot
 
 import (
-	"fmt"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 	"log"
@@ -15,8 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Some error occured. Err: %s", err)
 	}
-
-	fmt.Println(os.Getenv("SERPAPI-TOKEN"))
 
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_API-TOKEN"))
 	if err != nil {
