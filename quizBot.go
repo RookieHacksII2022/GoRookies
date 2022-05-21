@@ -3,18 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/api/iterator"
 )
 
 func commandParse(msgTxt string, keyword string) string {
@@ -56,6 +56,16 @@ var yesNoKeyboard = tgbotapi.NewReplyKeyboard(
 	),
 )
 
+var questionReviewKeyboard = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Keep"),
+		tgbotapi.NewKeyboardButton("Toss"),
+	),
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Cancel"),
+	),
+)
+
 func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeyboardMarkup {
 	var optionsKeyboard = tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -67,12 +77,81 @@ func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeybo
 	return optionsKeyboard
 }
 
-func main() {
-	// check for env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+func sendQuestion(
+	chatID int64,
+	qnIndex int,
+	bot *tgbotapi.BotAPI,
+	questionsMap1 map[string]string,
+	questionsMap2 map[int]string,
+) {
+
+	msg2 := tgbotapi.NewMessage(chatID, "")
+	msg2.Text = "<strong>Q:</strong> " + questionsMap2[qnIndex] + "\n" +
+		"<strong>A:</strong> " + questionsMap1[questionsMap2[qnIndex]] + "\n"
+	msg2.ParseMode = "HTML"
+	if _, err := bot.Send(msg2); err != nil {
+		log.Panic(err)
 	}
+}
+
+func confirmQnsRemove(
+	chatID int64,
+	qnIndex int,
+	bot *tgbotapi.BotAPI,
+	questionsMap1 map[string]string,
+	questionsMap3 map[string]bool,
+) {
+
+	var msgCompilation string = ""
+	var nextQn string = ""
+
+	for question, _ := range questionsMap3 {
+		nextQn = "<strong>Q:</strong> " + question + "\n" +
+			"<strong>A:</strong> " + questionsMap1[question] + "\n"
+
+		if len(msgCompilation)+len(nextQn) < 4096 {
+			// append and continue
+			msgCompilation = msgCompilation + nextQn
+
+		} else {
+			// send partial message
+			msg2 := tgbotapi.NewMessage(chatID, "")
+			msg2.Text = msgCompilation
+			msg2.ParseMode = "HTML"
+			if _, err := bot.Send(msg2); err != nil {
+				log.Panic(err)
+			}
+
+			msgCompilation = nextQn
+		}
+
+	}
+
+	if msgCompilation != "" {
+		msg2 := tgbotapi.NewMessage(chatID, "")
+		msg2.Text = msgCompilation
+		msg2.ParseMode = "HTML"
+		if _, err := bot.Send(msg2); err != nil {
+			log.Panic(err)
+		}
+	}
+
+	msg2 := tgbotapi.NewMessage(chatID, "")
+	msg2.Text = "Are you sure you want to remove all the above questions?"
+	msg2.ReplyMarkup = yesNoKeyboard
+
+	if _, err := bot.Send(msg2); err != nil {
+		log.Panic(err)
+	}
+
+}
+
+func main() {
+	// // check for env file
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 
 	// fmt.Println("var1 = ", reflect.TypeOf(optionsKeyboard))
 
@@ -118,13 +197,18 @@ func main() {
 	var quizName string = ""
 
 	questionsMap1 := make(map[string]string)
+	questionsMap2 := make(map[int]string)
+	questionsMap3 := make(map[string]bool)
 
 	var questionText = ""
 
 	var numQns int = 0
+	var qnsRemaining int = 0
 	var scoreInt int = 0
 
-	fmt.Println(numQns, scoreInt)
+	// var quizData map[string]interface{}
+
+	fmt.Println(numQns, qnsRemaining, scoreInt)
 
 	for update := range updates {
 		// ignore non-Message updates
@@ -263,6 +347,8 @@ func main() {
 							// Handle document existing here
 							fmt.Println("Doc found:", doc.Ref.ID)
 
+							fmt.Println("var1 = ", reflect.TypeOf(doc.Data()))
+
 							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 							msg.Text = "Quiz titled " + quizName + " found!\n" +
 								"Press <strong>Exit</strong> to save changes and end\n" +
@@ -296,6 +382,87 @@ func main() {
 							bot,
 						)
 					}
+				case "removeQns":
+					// parse quiz name
+					quizName = commandParse(update.Message.Text, "removeQns")
+
+					fmt.Println("SEARCHING FOR QUIZ: " + quizName)
+
+					paramCharLen := len(quizName)
+
+					if paramCharLen > 0 {
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
+						doc, err := docRef.Get(ctx)
+						if err != nil {
+							if status.Code(err) == codes.NotFound {
+								// // Handle document not existing here
+								// _, err := docRef.Set(ctx /* custom object here */)
+								// if err != nil {
+								// 	return err
+								// }
+							} else {
+								// return err
+							}
+						}
+
+						if doc.Exists() {
+							// Handle document existing here
+							fmt.Println("Doc found:", doc.Ref.ID)
+
+							numQns = int(doc.Data()["numQns"].(int64))
+							qnsRemaining = 0
+
+							if numQns == 0 {
+								sendSimpleMsg(
+									update.Message.Chat.ID,
+									"This quiz has no questions to remove!",
+									bot,
+								)
+							} else {
+								msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+								msg.Text = "Quiz titled " + quizName + " found!\n" +
+									"For each question:\n" +
+									"Press <strong>Keep</strong> to keep the question\n" +
+									"Press <strong>Toss</strong> to remove the question\n" +
+									"Press <strong>Cancel</strong> to revert changes\n"
+								msg.ParseMode = "HTML"
+
+								msg.ReplyMarkup = questionReviewKeyboard
+
+								if _, err := bot.Send(msg); err != nil {
+									log.Panic(err)
+								}
+
+								for question, answer := range doc.Data() {
+									if question != "numQns" && question != "score" {
+										questionsMap1[answer.(string)] = answer.(string)
+										qnsRemaining++
+										questionsMap2[qnsRemaining] = answer.(string)
+									}
+								}
+
+								sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+								qnsRemaining--
+
+								numQns = 0
+								botState = "removeQns"
+							}
+						} else {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"Quiz with name "+quizName+" not found.",
+								bot,
+							)
+						}
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please include a quiz name with this command.\n"+
+								"Spaces in the quiz name are allowed.\n"+
+								"e.g. `/addQns demo quiz`",
+							bot,
+						)
+					}
 				case "listQuizzes":
 					var docNames []string
 					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
@@ -312,12 +479,12 @@ func main() {
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
-					msg.Text = "Here is the list of your quizzes: \n" 
+					msg.Text = "Here is the list of your quizzes: \n"
 					for i, s := range docNames {
 						msg.Text += "- " + s + "\n"
 						fmt.Println(i, s)
 					}
-					msg.ParseMode = "HTML" 
+					msg.ParseMode = "HTML"
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -337,6 +504,7 @@ func main() {
 				switch update.Message.Text {
 				case "Exit":
 					questionsMap1["numQns"] = fmt.Sprint(numQns)
+					questionsMap1["score"] = "none"
 
 					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, questionsMap1, firestore.MergeAll)
 
@@ -354,6 +522,7 @@ func main() {
 					}
 
 					botState = "idle"
+					inputExpected = "none"
 
 				case "Cancel":
 
@@ -428,6 +597,132 @@ func main() {
 					}
 
 					botState = "addQns_Qn"
+
+				default:
+				}
+
+			case "removeQns":
+				switch update.Message.Text {
+				case "Keep":
+					// check for next qn to send
+					numQns++
+
+					if qnsRemaining == 0 {
+						confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
+						botState = "removeQns_confirm"
+						botState = "idle"
+
+					} else {
+						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						qnsRemaining--
+					}
+
+				case "Toss":
+					// add to questionsMap3
+					questionsMap3[questionsMap2[qnsRemaining+1]] = true
+
+					// check for next qn to send
+					if qnsRemaining == 0 {
+						confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
+						botState = "removeQns_confirm"
+						botState = "idle"
+
+					} else {
+						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						qnsRemaining--
+					}
+
+				case "Cancel":
+					// to quit without saving
+					msg2 := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg2.Text = "Are you sure you want to <strong>Cancel</strong> update?"
+					msg2.ParseMode = "HTML"
+					msg2.ReplyMarkup = yesNoKeyboard
+
+					if _, err := bot.Send(msg2); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "removeQns_cancel"
+
+				default:
+				}
+
+			case "removeQns_cancel":
+				switch update.Message.Text {
+				case "Yes":
+					// cancel all changes
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Changes to quiz cancelled."
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					// reset arrays
+					questionsMap1 = make(map[string]string)
+					questionsMap2 = make(map[int]string)
+					questionsMap3 = make(map[string]bool)
+
+					botState = "idle"
+
+				case "No":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Continuing quiz review. Toss or keep previous question?"
+					msg.ReplyMarkup = questionReviewKeyboard
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "removeQns"
+
+				default:
+				}
+
+			case "removeQns_confirm":
+				switch update.Message.Text {
+				case "Yes":
+					// TODO: update all the listed questions to remove in firebase
+
+					// update score field to "none"
+
+					// update numQns field to numQns
+
+					// cancel all changes
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Removed selected questions."
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					// reset arrays
+					questionsMap1 = make(map[string]string)
+					questionsMap2 = make(map[int]string)
+					questionsMap3 = make(map[string]bool)
+
+					botState = "idle"
+
+				case "No":
+
+					// cancel all changes
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Changes to quiz cancelled."
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					// reset arrays
+					questionsMap1 = make(map[string]string)
+					questionsMap2 = make(map[int]string)
+					questionsMap3 = make(map[string]bool)
+
+					botState = "idle"
 
 				default:
 				}
