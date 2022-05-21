@@ -345,3 +345,8 @@ func main() {
 		// }
 	}
 }
+
+func Parser(str string) string {
+	arr := strings.Split(str, " ")
+	return arr[1]
+}
