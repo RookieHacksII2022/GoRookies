@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	firebase "firebase.google.com/go"
 
@@ -13,6 +14,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func commandParse(msgTxt string, keyword string) string {
+	return strings.Replace(msgTxt, "/"+keyword+" ", "", 1)
+}
 
 var optionKeyboard = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
@@ -70,66 +75,66 @@ func main() {
 			continue
 		}
 
-		if botState == "inactive" {
-			if !update.Message.IsCommand() { // ignore any non-command Messages
-				continue
-			}
+		if !update.Message.IsCommand() { // ignore any non-command Messages
+			continue
+		} else if update.Message.Command() == "start" {
+			// Check if the focus user id is already in the USERS collection, else create new user
+			currentUsername = update.Message.From.UserName
+			currentUserID = fmt.Sprint(update.Message.From.ID)
 
-			if update.Message.Command() == "start" {
-				// Check if the focus user id is already in the USERS collection, else create new user
-				currentUsername = update.Message.From.UserName
-				currentUserID = fmt.Sprint(update.Message.From.ID)
-
-				docRef := client.Collection("USERS").Doc(currentUserID)
-				doc, err := docRef.Get(ctx)
-				if err != nil {
-					if status.Code(err) == codes.NotFound {
-						// // Handle document not existing here
-						// _, err := docRef.Set(ctx /* custom object here */)
-						// if err != nil {
-						// 	return err
-						// }
-					} else {
-						// return err
-					}
-				}
-
-				if doc.Exists() {
-					// Handle document existing here
-					fmt.Println("User found")
-
+			docRef := client.Collection("USERS").Doc(currentUserID)
+			doc, err := docRef.Get(ctx)
+			if err != nil {
+				if status.Code(err) == codes.NotFound {
+					// // Handle document not existing here
+					// _, err := docRef.Set(ctx /* custom object here */)
+					// if err != nil {
+					// 	return err
+					// }
 				} else {
-					// Create new user document
-					_, err := client.Collection("USERS").Doc(currentUserID).Set(ctx, map[string]interface{}{
-						"username": currentUsername,
-					})
-
-					if err != nil {
-						log.Fatalf("Failed adding [%s]: %v", currentUsername, err)
-					}
-
-					// Create new user quizzes collection
-					_, err2 := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc("demo quiz").Set(ctx, map[string]interface{}{
-						"numQns":                       "1",
-						"score":                        "none",
-						"this is a demo quiz question": "this is a demo quiz answer",
-					})
-
-					if err2 != nil {
-						log.Fatalf("Failed adding quizzes collection for [%s]: %v", currentUsername, err2)
-					}
+					// return err
 				}
-
-				// Return message: "Hello <username>!"
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-				msg.Text = "Hello " + currentUsername + "!"
-
-				if _, err := bot.Send(msg); err != nil {
-					log.Panic(err)
-				}
-
 			}
-		} else if botState == "idle" {
+
+			if doc.Exists() {
+				// Handle document existing here
+				fmt.Println("User found")
+
+			} else {
+				// Create new user document
+				_, err := client.Collection("USERS").Doc(currentUserID).Set(ctx, map[string]interface{}{
+					"username": currentUsername,
+				})
+
+				if err != nil {
+					log.Fatalf("Failed adding [%s]: %v", currentUsername, err)
+				}
+
+				// Create new user quizzes collection
+				_, err2 := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc("demo quiz").Set(ctx, map[string]interface{}{
+					"numQns":                       "1",
+					"score":                        "none",
+					"this is a demo quiz question": "this is a demo quiz answer",
+				})
+
+				if err2 != nil {
+					log.Fatalf("Failed adding quizzes collection for [%s]: %v", currentUsername, err2)
+				}
+			}
+
+			// Return message: "Hello <username>!"
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+			msg.Text = "Hello " + currentUsername + "!"
+
+			if _, err := bot.Send(msg); err != nil {
+				log.Panic(err)
+			}
+
+			botState = "idle"
+
+		}
+
+		if botState == "idle" {
 			if !update.Message.IsCommand() { // ignore any non-command Messages
 				continue
 			}
@@ -150,8 +155,13 @@ func main() {
 					log.Panic(err)
 				}
 
-			case "start":
-				// log new focus user
+			case "addQns":
+				// check if message is from current user
+				if currentUserID == fmt.Sprint(update.Message.From.ID) {
+
+				}
+
+				// if not ignore other users
 
 			default:
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
