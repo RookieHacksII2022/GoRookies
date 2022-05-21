@@ -1,4 +1,4 @@
-package main
+package bot
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -59,7 +59,7 @@ func main() {
 			dt := time.Now()
 			msg.Text = "The current time and date now is " + dt.String()
 		case "copycat":
-			msg.Text = "Echo back to you " + parserCopycat(update.Message.Text)
+			msg.Text = "Echo back to you " + ParserCopycat(update.Message.Text)
 		default:
 			msg.Text = "I don't know that command"
 		}
@@ -70,6 +70,6 @@ func main() {
 	}
 }
 
-func parserCopycat(str string) string {
+func ParserCopycat(str string) string {
 	return strings.Replace(str, "/copycat ", "", 1)
 }

@@ -1,10 +1,12 @@
-package main
+package bot
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParserCopycat(t *testing.T) {
 	originalStr := "/copycat testing 123"
-	outputStr := parserCopycat(originalStr)
+	outputStr := ParserCopycat(originalStr)
 
 	if outputStr != "testing 123" {
 		t.Error("Expected: " + "testing 123 but got: " + outputStr)
