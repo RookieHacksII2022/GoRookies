@@ -246,6 +246,67 @@ func main() {
 							bot,
 						)
 					}
+				case "deleteQuiz": 
+					// parse quiz name
+					quizName = commandParse(update.Message.Text, "deleteQuiz")
+					paramCharLen := len(quizName)
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+
+					if paramCharLen > 0 {
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
+						doc, err := docRef.Get(ctx)
+						if doc.Exists() {
+							docRef.Delete(ctx)
+						} 
+
+						if err == nil {
+							msg.Text = "Successfully deleted quiz: "  + quizName  
+						}
+
+						if err != nil {
+							msg.Text = "Quiz could not be found. Error deleting quiz: " + quizName
+						}
+							
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Please include a quiz name with this command.\n"+
+								"Spaces in the quiz name are allowed.\n"+
+								"e.g. `/deleteQuiz demo quiz`",
+							bot,
+						)
+					}
+
+				case "listQuizzes":
+					var docNames []string
+					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
+					for {
+						doc, err := iter.Next()
+						if err == iterator.Done {
+							break
+						}
+						if err != nil {
+							//return err
+						}
+						docNames = append(docNames, doc.Ref.ID)
+					}
+
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+					msg.Text = "Here is the list of your quizzes: \n" 
+					for i, s := range docNames {
+						msg.Text += "- " + s + "\n"
+						fmt.Println(i, s)
+					}
+					msg.ParseMode = "HTML" 
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
 
 				default:
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
