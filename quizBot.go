@@ -546,9 +546,9 @@ func main() {
 							bot,
 						)
 					}
-					case "deleteQuiz": 
+					case "delete_quiz": 
 					// parse quiz name
-					quizName = commandParse(update.Message.Text, "deleteQuiz")
+					quizName = commandParse(update.Message.Text, "delete_quiz")
 					paramCharLen := len(quizName)
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
@@ -576,11 +576,11 @@ func main() {
 							update.Message.Chat.ID,
 							"Please include a quiz name with this command.\n"+
 								"Spaces in the quiz name are allowed.\n"+
-								"e.g. `/deleteQuiz demo quiz`",
+								"e.g. `/delete_quiz demo quiz`",
 							bot,
 						)
 					}
-				case "listQuizzes":
+				case "list_quizzes":
 					var docNames []string
 					iter := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Documents(ctx)
 					for {
