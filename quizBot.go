@@ -35,15 +35,16 @@ func sendSimpleMsg(chatID int64, msgTxt string, bot *tgbotapi.BotAPI) {
 
 func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 	msg := tgbotapi.NewMessage(chatID, "")
+	msg.ParseMode = "HTML"
 	msg.Text = "I understand the following commands: \n" +
 		"<strong>/help</strong>  - get list of commands\n" +
 		"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
 		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
 		"<strong>/removeQns <i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
-		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
+		"<strong>/tryQuiz</strong> - try a selected quiz\n" +
 		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-		"<strong>/listQuizzes</strong> - list all of your quizzes"
-	msg.ParseMode = "HTML"
+		"<strong>/listQuizzes</strong> - list all of your quizzes\n" +
+		"<strong>/getMyId</strong> - list all of your quizzes"
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
@@ -67,6 +68,16 @@ var questionReviewKeyboard = tgbotapi.NewReplyKeyboard(
 	),
 )
 
+var questionResultKeyboard = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Correct"),
+		tgbotapi.NewKeyboardButton("Wrong"),
+	),
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("End Quiz"),
+	),
+)
+
 func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeyboardMarkup {
 	var optionsKeyboard = tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -78,7 +89,7 @@ func createTwoBtnRowKeyboard(btnTxt1 string, btnTxt2 string) tgbotapi.ReplyKeybo
 	return optionsKeyboard
 }
 
-func sendQuestion(
+func sendQuestionAndAnswerSet(
 	chatID int64,
 	qnIndex int,
 	bot *tgbotapi.BotAPI,
@@ -90,6 +101,40 @@ func sendQuestion(
 	msg2.Text = "<strong>Q:</strong> " + questionsMap2[qnIndex] + "\n" +
 		"<strong>A:</strong> " + questionsMap1[questionsMap2[qnIndex]] + "\n\n"
 	msg2.ParseMode = "HTML"
+	if _, err := bot.Send(msg2); err != nil {
+		log.Panic(err)
+	}
+}
+
+func sendQuestion(
+	chatID int64,
+	qnIndex int,
+	bot *tgbotapi.BotAPI,
+	questionsMap1 map[string]string,
+	questionsMap2 map[int]string,
+) {
+
+	msg2 := tgbotapi.NewMessage(chatID, "")
+	msg2.Text = "<strong>Q:</strong> " + questionsMap2[qnIndex] + "\n"
+	msg2.ParseMode = "HTML"
+	msg2.ReplyMarkup = createTwoBtnRowKeyboard("Reveal Ans", "End Quiz")
+	if _, err := bot.Send(msg2); err != nil {
+		log.Panic(err)
+	}
+}
+
+func sendAnswer(
+	chatID int64,
+	qnIndex int,
+	bot *tgbotapi.BotAPI,
+	questionsMap1 map[string]string,
+	questionsMap2 map[int]string,
+) {
+
+	msg2 := tgbotapi.NewMessage(chatID, "")
+	msg2.Text = "<strong>A:</strong> " + questionsMap1[questionsMap2[qnIndex]] + "\n"
+	msg2.ParseMode = "HTML"
+	msg2.ReplyMarkup = questionResultKeyboard
 	if _, err := bot.Send(msg2); err != nil {
 		log.Panic(err)
 	}
@@ -204,12 +249,13 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 
-	var botState string = "inactive"
-
 	// inactive -> current user has not be logged by bot. User is otherwise logged by the bot
 	// idle -> user has been logged by bot and waiting command
-
+	var botState string = "inactive"
 	var inputExpected string = "none"
+	var tryingMyQuiz bool = false
+
+	var friendUserID string = ""
 
 	var currentUsername string = ""
 	var currentUserID string = ""
@@ -262,6 +308,22 @@ func main() {
 			if doc.Exists() {
 				// Handle document existing here
 				fmt.Println("User found")
+
+				if doc.Data()["username"].(string) != currentUsername {
+					// update username in database
+					_, err = client.Collection("USERS").Doc(currentUserID).Update(ctx, []firestore.Update{
+						{
+							Path:  "username",
+							Value: currentUsername,
+						},
+					})
+
+					if err != nil {
+						// Handle any errors in an appropriate way, such as returning them.
+						log.Printf("An error has occurred trying to update username: %s", err)
+					}
+
+				}
 
 			} else {
 				// Create new user document
@@ -327,7 +389,7 @@ func main() {
 							)
 						} else {
 							_, _ = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle).Set(ctx, map[string]interface{}{
-								"numQns": "0",
+								"numQns": 0,
 								"score":  "none",
 							})
 
@@ -462,7 +524,7 @@ func main() {
 									}
 								}
 
-								sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+								sendQuestionAndAnswerSet(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
 								qnsRemaining--
 
 								numQns = 0
@@ -505,11 +567,34 @@ func main() {
 						msg.Text += "- " + s + "\n"
 						fmt.Println(i, s)
 					}
-					msg.ParseMode = "HTML"
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
 					}
+
+				case "getMyId":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+					msg.Text = "Here is your user info: \n" +
+						"<strong>id</strong>: " + currentUserID + "\n" +
+						"<strong>firstname</strong> " + update.Message.From.FirstName + "\n" +
+						"<strong>username</strong> " + currentUsername + "\n"
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+				case "tryQuiz":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.ParseMode = "HTML"
+					msg.Text = "Would you like to try your own quiz or a friend's quiz?"
+					msg.ReplyMarkup = createTwoBtnRowKeyboard("My own quiz", "A friend's quiz")
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "tryQuiz_select"
 
 				default:
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -521,10 +606,386 @@ func main() {
 					}
 				}
 
+			case "tryQuiz_select":
+				switch update.Message.Text {
+				case "My own quiz":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Please input the quiz name:\n" +
+						"(Press <strong>Cancel</strong> to exit)"
+					msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
+						tgbotapi.NewKeyboardButtonRow(
+							tgbotapi.NewKeyboardButton("Cancel"),
+						),
+					)
+					msg.ParseMode = "HTML"
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "tryQuiz_myQuiz"
+					tryingMyQuiz = true
+
+				case "A friend's quiz":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Please input your friend's user id number.\n" +
+						"Your friend can get their id number using the <strong>/getMyId</strong> command.\n" +
+						"(Press <strong>Cancel</strong> to exit)"
+					msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
+						tgbotapi.NewKeyboardButtonRow(
+							tgbotapi.NewKeyboardButton("Cancel"),
+						),
+					)
+					msg.ParseMode = "HTML"
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "tryQuiz_friend"
+					tryingMyQuiz = false
+
+				default:
+
+				}
+			case "tryQuiz_myQuiz":
+				switch update.Message.Text {
+				case "Cancel":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Cancelling quiz attempt"
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+				default:
+					quizName = update.Message.Text
+					docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
+					doc, err := docRef.Get(ctx)
+					if err != nil {
+						if status.Code(err) == codes.NotFound {
+							// // Handle document not existing here
+							// _, err := docRef.Set(ctx /* custom object here */)
+							// if err != nil {
+							// 	return err
+							// }
+						} else {
+							// return err
+						}
+					}
+
+					if doc.Exists() {
+						// Handle document existing here
+						fmt.Println("Doc found:", doc.Ref.ID)
+
+						numQns = int(doc.Data()["numQns"].(int64))
+						prevScore := doc.Data()["score"].(string)
+						qnsRemaining = 0
+						scoreInt = 0
+
+						if prevScore != "none" {
+							prevScore = "You previously got " + prevScore + " on this quiz.\n"
+						} else {
+							prevScore = ""
+						}
+
+						if numQns == 0 {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"This quiz has no questions to try!",
+								bot,
+							)
+						} else {
+							// send quiz instructions
+							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+							msg.Text = "Quiz titled " + quizName + " found!\n" +
+								prevScore +
+								"For each question:\n" +
+								"Press <strong>Reveal Answer</strong> to reveal the answer.\n" +
+								"After that, press <strong>Correct</strong> if you answered correctly,\n" +
+								"or press <strong>Wrong</strong> if you answered wrongly\n" +
+								"Your score will be computed at the end of the quiz.\n" +
+								"You may also <strong>End quiz</strong> at any time\n"
+							msg.ParseMode = "HTML"
+
+							if _, err := bot.Send(msg); err != nil {
+								log.Panic(err)
+							}
+
+							// reset questionMaps
+							questionsMap1 = make(map[string]string)
+							questionsMap2 = make(map[int]string)
+							questionsMap3 = make(map[string]bool)
+
+							// save questions to question map
+							for question, answer := range doc.Data() {
+								if question != "numQns" && question != "score" {
+									questionsMap1[question] = answer.(string)
+									qnsRemaining++
+									questionsMap2[qnsRemaining] = question
+								}
+							}
+
+							// send first question
+							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+
+							botState = "tryQuiz_quizAttempt"
+							inputExpected = "post-qn"
+						}
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Quiz with name "+quizName+" not found. Please re-enter your quiz name",
+							bot,
+						)
+					}
+				}
+
+			case "tryQuiz_friend":
+				switch update.Message.Text {
+				case "Cancel":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Cancelling quiz attempt"
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "idle"
+
+				default:
+					friendUserID = update.Message.Text
+					docRef := client.Collection("USERS").Doc(friendUserID)
+					doc, err := docRef.Get(ctx)
+					if err != nil {
+						if status.Code(err) == codes.NotFound {
+							// // Handle document not existing here
+							// _, err := docRef.Set(ctx /* custom object here */)
+							// if err != nil {
+							// 	return err
+							// }
+						} else {
+							// return err
+						}
+					}
+
+					if doc.Exists() {
+						// Handle document existing here
+						fmt.Println("Doc found:", doc.Ref.ID)
+
+						friendUsername := doc.Data()["username"].(string)
+
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+						msg.Text = "Friend with username " + friendUsername + " found! Please input the quiz name:\n" +
+							"(Press <strong>Cancel</strong> to exit)"
+						msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
+							tgbotapi.NewKeyboardButtonRow(
+								tgbotapi.NewKeyboardButton("Cancel"),
+							),
+						)
+						msg.ParseMode = "HTML"
+
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+
+						botState = "tryQuiz_friendQuiz"
+
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"User with with ID "+friendUserID+" not found in our database. Please re-enter friend ID",
+							bot,
+						)
+					}
+				}
+
+			case "tryQuiz_friendQuiz":
+				switch update.Message.Text {
+				case "Cancel":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+					msg.Text = "Cancelling quiz attempt"
+					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+					botState = "idle"
+
+				default:
+					quizName = update.Message.Text
+					docRef := client.Collection("USERS").Doc(friendUserID).Collection("QUIZZES").Doc(quizName)
+					doc, err := docRef.Get(ctx)
+					if err != nil {
+						if status.Code(err) == codes.NotFound {
+							// // Handle document not existing here
+							// _, err := docRef.Set(ctx /* custom object here */)
+							// if err != nil {
+							// 	return err
+							// }
+						} else {
+							// return err
+						}
+					}
+
+					if doc.Exists() {
+						// Handle document existing here
+						fmt.Println("Doc found:", doc.Ref.ID)
+
+						numQns = int(doc.Data()["numQns"].(int64))
+						qnsRemaining = 0
+						scoreInt = 0
+
+						if numQns == 0 {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"This quiz has no questions to try!",
+								bot,
+							)
+						} else {
+							// send quiz instructions
+							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+							msg.Text = "Quiz titled " + quizName + " found!\n" +
+								"For each question:\n" +
+								"Press <strong>Reveal Answer</strong> to reveal the answer.\n" +
+								"After that, press <strong>Correct</strong> if you answered correctly,\n" +
+								"or press <strong>Wrong</strong> if you answered wrongly\n" +
+								"Your score will be computed at the end of the quiz.\n" +
+								"You may also <strong>End quiz</strong> at any time\n"
+							msg.ParseMode = "HTML"
+
+							if _, err := bot.Send(msg); err != nil {
+								log.Panic(err)
+							}
+
+							// reset questionMaps
+							questionsMap1 = make(map[string]string)
+							questionsMap2 = make(map[int]string)
+							questionsMap3 = make(map[string]bool)
+
+							// save questions to question map
+							for question, answer := range doc.Data() {
+								if question != "numQns" && question != "score" {
+									questionsMap1[question] = answer.(string)
+									qnsRemaining++
+									questionsMap2[qnsRemaining] = question
+								}
+							}
+
+							// send first question
+							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+
+							botState = "tryQuiz_quizAttempt"
+							inputExpected = "post-qn"
+						}
+					} else {
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Quiz with name "+quizName+" not found. Please re-enter your friend's quiz name",
+							bot,
+						)
+					}
+				}
+			case "tryQuiz_quizAttempt":
+				switch inputExpected {
+				case "post-qn":
+					switch update.Message.Text {
+					case "Reveal Ans":
+						sendAnswer(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						qnsRemaining--
+						inputExpected = "post-ans"
+
+					case "End Quiz":
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+						msg.Text = "Cancelling quiz attempt"
+						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+
+						botState = "idle"
+					}
+
+				case "post-ans":
+					inputError := false
+					switch update.Message.Text {
+					case "Correct":
+						scoreInt++
+						if qnsRemaining != 0 {
+							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						}
+						inputExpected = "post-qn"
+					case "Wrong":
+						if qnsRemaining != 0 {
+							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						}
+						inputExpected = "post-qn"
+
+					case "End Quiz":
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+						msg.Text = "Cancelling quiz attempt"
+						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+
+						botState = "idle"
+
+					default:
+						inputError = true
+					}
+
+					if qnsRemaining == 0 && !inputError {
+						if tryingMyQuiz {
+							_, err = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Update(ctx, []firestore.Update{
+								{
+									Path:  "score",
+									Value: fmt.Sprint(scoreInt) + "/" + fmt.Sprint(numQns),
+								},
+							})
+
+							if err != nil {
+								// Handle any errors in an appropriate way, such as returning them.
+								log.Printf("An error has occurred trying to update score to firebase: %s", err)
+							}
+
+						}
+
+						// TODO: link to html instead
+						// define endMsg based on pass fail
+						var endMsg string
+
+						if scoreInt/numQns == 1 {
+							endMsg = "Congrats perfect score!"
+						} else if float64(scoreInt)/float64(numQns) > float64(0.5) {
+							endMsg = "Congrats you passed!"
+						} else {
+							endMsg = "You failed! Better luck next time."
+						}
+
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+						msg.Text = "You scored " + fmt.Sprint(scoreInt) + "/" + fmt.Sprint(numQns) + "\n" + endMsg
+						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+						if _, err := bot.Send(msg); err != nil {
+							log.Panic(err)
+						}
+
+						// send score
+						botState = "idle"
+					}
+				default:
+
+				}
 			case "addQns_Qn":
 				switch update.Message.Text {
 				case "Exit":
-					questionsMap1["numQns"] = fmt.Sprint(numQns)
+
 					questionsMap1["score"] = "none"
 
 					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, questionsMap1, firestore.MergeAll)
@@ -532,6 +993,18 @@ func main() {
 					if err != nil {
 						// Handle any errors in an appropriate way, such as returning them.
 						log.Printf("An error has occurred: %s", err)
+					}
+
+					_, err = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Update(ctx, []firestore.Update{
+						{
+							Path:  "numQns",
+							Value: numQns,
+						},
+					})
+
+					if err != nil {
+						// Handle any errors in an appropriate way, such as returning them.
+						log.Printf("An error has occurred trying to update numQns to firebase: %s", err)
 					}
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -639,7 +1112,7 @@ func main() {
 						}
 
 					} else {
-						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						sendQuestionAndAnswerSet(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
 						qnsRemaining--
 					}
 
@@ -658,7 +1131,7 @@ func main() {
 						}
 
 					} else {
-						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
+						sendQuestionAndAnswerSet(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
 						qnsRemaining--
 					}
 
@@ -771,7 +1244,13 @@ func main() {
 				}
 
 			default:
-				sendHelpMessage(update.Message.Chat.ID, bot)
+				msg2 := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+				msg2.Text = "User not logged in. Please run <strong>/start</strong> to log in user"
+				msg2.ParseMode = "HTML"
+
+				if _, err := bot.Send(msg2); err != nil {
+					log.Panic(err)
+				}
 				fmt.Println("BOT STATE INVALID")
 			}
 
