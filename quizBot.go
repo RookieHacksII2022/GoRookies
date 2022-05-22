@@ -39,6 +39,7 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 		"<strong>/help</strong>  - get list of commands\n" +
 		"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
 		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
+		"<strong>/removeQns <i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
 		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
 		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
 		"<strong>/listQuizzes</strong> - list all of your quizzes"
@@ -87,7 +88,7 @@ func sendQuestion(
 
 	msg2 := tgbotapi.NewMessage(chatID, "")
 	msg2.Text = "<strong>Q:</strong> " + questionsMap2[qnIndex] + "\n" +
-		"<strong>A:</strong> " + questionsMap1[questionsMap2[qnIndex]] + "\n"
+		"<strong>A:</strong> " + questionsMap1[questionsMap2[qnIndex]] + "\n\n"
 	msg2.ParseMode = "HTML"
 	if _, err := bot.Send(msg2); err != nil {
 		log.Panic(err)
@@ -100,29 +101,35 @@ func confirmQnsRemove(
 	bot *tgbotapi.BotAPI,
 	questionsMap1 map[string]string,
 	questionsMap3 map[string]bool,
-) {
+) bool {
 
 	var msgCompilation string = ""
 	var nextQn string = ""
 
-	for question, _ := range questionsMap3 {
-		nextQn = "<strong>Q:</strong> " + question + "\n" +
-			"<strong>A:</strong> " + questionsMap1[question] + "\n"
+	var haveTossed bool = false
 
-		if len(msgCompilation)+len(nextQn) < 4096 {
-			// append and continue
-			msgCompilation = msgCompilation + nextQn
+	for question, isTossed := range questionsMap3 {
+		if isTossed {
+			haveTossed = true
 
-		} else {
-			// send partial message
-			msg2 := tgbotapi.NewMessage(chatID, "")
-			msg2.Text = msgCompilation
-			msg2.ParseMode = "HTML"
-			if _, err := bot.Send(msg2); err != nil {
-				log.Panic(err)
+			nextQn = "<strong>Q:</strong> " + question + "\n" +
+				"<strong>A:</strong> " + questionsMap1[question] + "\n"
+
+			if len(msgCompilation)+len(nextQn) < 4096 {
+				// append and continue
+				msgCompilation = msgCompilation + nextQn
+
+			} else {
+				// send partial message
+				msg2 := tgbotapi.NewMessage(chatID, "")
+				msg2.Text = msgCompilation
+				msg2.ParseMode = "HTML"
+				if _, err := bot.Send(msg2); err != nil {
+					log.Panic(err)
+				}
+
+				msgCompilation = nextQn
 			}
-
-			msgCompilation = nextQn
 		}
 
 	}
@@ -136,13 +143,25 @@ func confirmQnsRemove(
 		}
 	}
 
-	msg2 := tgbotapi.NewMessage(chatID, "")
-	msg2.Text = "Are you sure you want to remove all the above questions?"
-	msg2.ReplyMarkup = yesNoKeyboard
+	if haveTossed {
+		msg2 := tgbotapi.NewMessage(chatID, "")
+		msg2.Text = "Are you sure you want to remove all the above questions?"
+		msg2.ReplyMarkup = yesNoKeyboard
 
-	if _, err := bot.Send(msg2); err != nil {
-		log.Panic(err)
+		if _, err := bot.Send(msg2); err != nil {
+			log.Panic(err)
+		}
+	} else {
+		msg2 := tgbotapi.NewMessage(chatID, "")
+		msg2.Text = "No questions selected for removal"
+		msg2.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+		if _, err := bot.Send(msg2); err != nil {
+			log.Panic(err)
+		}
 	}
+
+	return haveTossed
 
 }
 
@@ -199,6 +218,8 @@ func main() {
 	questionsMap1 := make(map[string]string)
 	questionsMap2 := make(map[int]string)
 	questionsMap3 := make(map[string]bool)
+
+	updateDocFields := make(map[string]interface{})
 
 	var questionText = ""
 
@@ -435,9 +456,9 @@ func main() {
 
 								for question, answer := range doc.Data() {
 									if question != "numQns" && question != "score" {
-										questionsMap1[answer.(string)] = answer.(string)
+										questionsMap1[question] = answer.(string)
 										qnsRemaining++
-										questionsMap2[qnsRemaining] = answer.(string)
+										questionsMap2[qnsRemaining] = question
 									}
 								}
 
@@ -605,12 +626,17 @@ func main() {
 				switch update.Message.Text {
 				case "Keep":
 					// check for next qn to send
+					questionsMap3[questionsMap2[qnsRemaining+1]] = false
 					numQns++
 
 					if qnsRemaining == 0 {
-						confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
-						botState = "removeQns_confirm"
-						botState = "idle"
+						haveTossed := confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
+
+						if haveTossed {
+							botState = "removeQns_confirm"
+						} else {
+							botState = "idle"
+						}
 
 					} else {
 						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
@@ -623,9 +649,13 @@ func main() {
 
 					// check for next qn to send
 					if qnsRemaining == 0 {
-						confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
-						botState = "removeQns_confirm"
-						botState = "idle"
+						haveTossed := confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
+
+						if haveTossed {
+							botState = "removeQns_confirm"
+						} else {
+							botState = "idle"
+						}
 
 					} else {
 						sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
@@ -684,11 +714,24 @@ func main() {
 			case "removeQns_confirm":
 				switch update.Message.Text {
 				case "Yes":
-					// TODO: update all the listed questions to remove in firebase
-
+					// update all the listed questions to remove in firebase
+					updateDocFields = make(map[string]interface{})
+					for question, isTossed := range questionsMap3 {
+						if !isTossed {
+							updateDocFields[question] = questionsMap1[question]
+						}
+					}
 					// update score field to "none"
+					updateDocFields["score"] = "none"
 
 					// update numQns field to numQns
+					updateDocFields["numQns"] = numQns
+
+					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, updateDocFields)
+					if err != nil {
+						// Handle any errors in an appropriate way, such as returning them.
+						log.Printf("An error has occurred: %s", err)
+					}
 
 					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
