@@ -46,7 +46,7 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 		"<strong>/try_quiz</strong> - try a selected quiz\n" +
 		"<strong>/delete_quiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
 		"<strong>/list_quizzes</strong> - list all of your quizzes\n" +
-		"<strong>/get_my_id</strong> - Get your telegram ID number"
+		"<strong>/get_my_id</strong> - get your telegram ID number"
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
