@@ -359,7 +359,7 @@ func main() {
 				}
 			}
 
-			sendSimpleMsg(update.Message.Chat.ID, "Hello "+currentUsername+"!", bot)
+			sendSimpleMsg(update.Message.Chat.ID, "Hello "+"USERNAME REDACTED"+"!", bot)
 
 			botState = "idle"
 
@@ -628,9 +628,9 @@ func main() {
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
 					msg.Text = "Here is your user info: \n" +
-						"<strong>id</strong>: " + currentUserID + "\n" +
-						"<strong>firstname</strong> " + update.Message.From.FirstName + "\n" +
-						"<strong>username</strong> " + currentUsername + "\n"
+						"<strong>id</strong>: " + "REDACTED CURRENT USER ID" + "\n" +
+						"<strong>firstname</strong> " + "REDACTED CURRENT USER FIRST NAME" + "\n" +
+						"<strong>username</strong> " + "REDACTED CURRENT USERNAME" + "\n"
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -821,7 +821,7 @@ func main() {
 					botState = "idle"
 
 				default:
-					friendUserID = update.Message.Text
+					friendUserID = "STATIC USERID"
 					docRef := client.Collection("USERS").Doc(friendUserID)
 					doc, err := docRef.Get(ctx)
 					if err != nil {
@@ -840,10 +840,10 @@ func main() {
 						// Handle document existing here
 						fmt.Println("Doc found:", doc.Ref.ID)
 
-						friendUsername := doc.Data()["username"].(string)
+						// friendUsername := doc.Data()["username"].(string)
 
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-						msg.Text = "Friend with username " + friendUsername + " found! Please input the quiz name:\n" +
+						msg.Text = "Friend with username " + "REDACTED FRIEND USERNAME" + " found! Please input the quiz name:\n" +
 							"(Press <strong>Cancel</strong> to exit)"
 						msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
 							tgbotapi.NewKeyboardButtonRow(
