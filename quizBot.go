@@ -610,11 +610,16 @@ func main() {
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
-					msg.Text = "Here is the list of your quizzes: \n"
-					for i, s := range docNames {
-						msg.Text += "- " + s + "\n"
-						fmt.Println(i, s)
+					if len(docNames) > 0 {
+						msg.Text = "Here is the list of your quizzes: \n"
+						for i, s := range docNames {
+							msg.Text += "- " + s + "\n"
+							fmt.Println(i, s)
+						}
+					} else {
+						msg.Text = "No quizzes found. Create one with /add_quiz quiz name"
 					}
+
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
