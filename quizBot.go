@@ -620,7 +620,6 @@ func main() {
 						msg.Text = "No quizzes found. Create one with /add_quiz quiz name"
 					}
 
-
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
 					}
@@ -646,6 +645,11 @@ func main() {
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
 					}
+
+					// reset questionMaps
+					questionsMap1 = make(map[string]string)
+					questionsMap2 = make(map[int]string)
+					questionsMap3 = make(map[string]bool)
 
 					botState = "try_quiz_select"
 
