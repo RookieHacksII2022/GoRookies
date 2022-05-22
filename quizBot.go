@@ -42,7 +42,8 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 		"<strong>/removeQns <i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
 		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
 		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-		"<strong>/listQuizzes</strong> - list all of your quizzes"
+		"<strong>/listQuizzes</strong> - list all of your quizzes" +
+		"<strong>/getMyId</strong> - list all of your quizzes"
 	msg.ParseMode = "HTML"
 
 	if _, err := bot.Send(msg); err != nil {
@@ -505,7 +506,18 @@ func main() {
 						msg.Text += "- " + s + "\n"
 						fmt.Println(i, s)
 					}
+
+					if _, err := bot.Send(msg); err != nil {
+						log.Panic(err)
+					}
+
+				case "getMyId":
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
+					msg.Text = "Here is your user info: \n" +
+						"<strong>id</strong>: " + currentUserID + "\n" +
+						"<strong>firstname</strong> " + update.Message.From.FirstName + "\n" +
+						"<strong>username</strong> " + currentUsername + "\n"
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
