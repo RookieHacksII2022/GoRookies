@@ -389,7 +389,7 @@ func main() {
 							)
 						} else {
 							_, _ = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle).Set(ctx, map[string]interface{}{
-								"numQns": "0",
+								"numQns": 0,
 								"score":  "none",
 							})
 
@@ -680,8 +680,15 @@ func main() {
 						fmt.Println("Doc found:", doc.Ref.ID)
 
 						numQns = int(doc.Data()["numQns"].(int64))
+						prevScore := doc.Data()["score"].(string)
 						qnsRemaining = 0
 						scoreInt = 0
+
+						if prevScore != "none" {
+							prevScore = "You previously got " + prevScore + " on this quiz.\n"
+						} else {
+							prevScore = ""
+						}
 
 						if numQns == 0 {
 							sendSimpleMsg(
@@ -693,6 +700,7 @@ func main() {
 							// send quiz instructions
 							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 							msg.Text = "Quiz titled " + quizName + " found!\n" +
+								prevScore +
 								"For each question:\n" +
 								"Press <strong>Reveal Answer</strong> to reveal the answer.\n" +
 								"After that, press <strong>Correct</strong> if you answered correctly,\n" +
@@ -954,7 +962,7 @@ func main() {
 
 						if scoreInt/numQns == 1 {
 							endMsg = "Congrats perfect score!"
-						} else if float64(scoreInt/numQns) > float64(0.5) {
+						} else if float64(scoreInt)/float64(numQns) > float64(0.5) {
 							endMsg = "Congrats you passed!"
 						} else {
 							endMsg = "You failed! Better luck next time."
@@ -978,7 +986,6 @@ func main() {
 				switch update.Message.Text {
 				case "Exit":
 
-					questionsMap1["numQns"] = fmt.Sprint(numQns)
 					questionsMap1["score"] = "none"
 
 					_, err := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Set(ctx, questionsMap1, firestore.MergeAll)
@@ -986,6 +993,18 @@ func main() {
 					if err != nil {
 						// Handle any errors in an appropriate way, such as returning them.
 						log.Printf("An error has occurred: %s", err)
+					}
+
+					_, err = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName).Update(ctx, []firestore.Update{
+						{
+							Path:  "numQns",
+							Value: numQns,
+						},
+					})
+
+					if err != nil {
+						// Handle any errors in an appropriate way, such as returning them.
+						log.Printf("An error has occurred trying to update numQns to firebase: %s", err)
 					}
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
