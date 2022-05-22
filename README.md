@@ -11,16 +11,66 @@
 ## Notable featuers
 ### Usage in chat groups
 While the main purpose of the quiz app is to create quick and simple quizlets for your own use, the bot also has a social feature, allowing users to share their quizzes with their friends. This allows for users to study together for tests and exams.
-![Test prep questions](https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/goquizbotexamprep.jpg)
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/goquizbotexamprep.jpg" width="350" title="Test prep questions">
+</p>
+
 
 In addiiton to being a useful study aid, goQuizBot can also be used for more entertaining purposes, such as creating "about me" quizzes to see how well your friends know you.
-![ice breaker questions]([http://url/to/img.png](https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/Icebreaker.jpg))
-While using in chat groups, goQuizBot is able to focus on the inputs of one user, allowing other users to provide commentary while their friends attempt their quizzes.
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/Icebreaker.jpg" width="350" title="ice breaker questions">
+</p>
+
+While using in chat groups, goQuizBot is even able to focus on the inputs of one user, allowing other users to provide commentary while their friends attempt their quizzes.
+
+### Quiz records
+
+goQuizBot helps you keep track of your preivous quiz scores on your own quizzes, so that you know which ones you have completed, and which ones need a little more work
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/previousscores.jpg" width="350" title="previous scores">
+</p>
 
 ### Custom keyboards
 We took advantage of Telegram's custom keyoard feature to provide custom keyboards where ever possible, to make navigating goQuizBot as easy as a click of a button.
 
-![alt text](http://url/to/img.png)
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/customkeyboards.jpg" width="350" title="Simple button options">
+</p>
+
+Custom keyboard for selecting the type of quiz you want to try
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/customkeyboards3.jpg" width="350" title="Simple button options">
+</p>
+
+Custome keyboard to quickly review and modify your quizzes
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/customkeyboards.jpg" width="350" title="Simple button options">
+</p>
+
+Custom keyboard to breeze through your quizes seamlessly
+
+### Text formatting
+
+goQuizBot also takes advantage of telegram's text formatting
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/textformatting2.jpg" width="350" title="text formatting1">
+</p>
+
+Text formatting to make instructions clearer
+
+<p align="center">
+<img src="https://github.com/RookieHacksII2022/GoRookies/blob/main/readmeImages/textformatting.jpg" width="350" title="text formatting1">
+</p>
+
+Text formatting on help message
+
+
 
 ## User Guide
 To first get the bots
