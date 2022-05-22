@@ -78,12 +78,19 @@ Here are the commands that goQuizBot understands:
 * `/help`  - get list of commands
   * This command provides the user with the list of commands that goQuizBot understands.
 * `/add_quiz quiz_name` - add a new quiz
+  *  add new quizzes to your personal collection
 * `/add_qns quiz_name` - add questions to a selected quiz
+  *  add questions to any of your quizzes
 * `/remove_qns quiz_name` - remove questions from a selected quiz
+  *  remove questions from any of your quizzes
 * `/try_quiz` - try a selected quiz
+  * try one of your own quizzes, or even one from your friends!
 * `/delete_quiz quiz_name` - delete a selected quiz
+  * delete a quiz from your collection
 * `/list_quizzes` - list all of your quizzes
+  * see a list of all quizzes
 * `/get_my_id` - Get your telegram ID number
+  * easily get your id number for quiz sharing
 
 
 ## Credits
