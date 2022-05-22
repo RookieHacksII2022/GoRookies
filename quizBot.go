@@ -38,11 +38,11 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 	msg.ParseMode = "HTML"
 	msg.Text = "I understand the following commands: \n" +
 		"<strong>/help</strong>  - get list of commands\n" +
-		"<strong>/add_quiz<i>quiz_name</i></strong> - add a new quiz\n" +
-		"<strong>/add_qns<i>quiz_name</i></strong> - add questions to a selected quiz\n" +
-		"<strong>/remove_qns<i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
+		"<strong>/add_quiz <i>quiz_name</i></strong> - add a new quiz\n" +
+		"<strong>/add_qns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
+		"<strong>/remove_qns <i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
 		"<strong>/try_quiz</strong> - try a selected quiz\n" +
-		"<strong>/delete_quiz<i>quiz_name</i></strong> - delete a selected quiz\n" +
+		"<strong>/delete_quiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
 		"<strong>/list_quizzes</strong> - list all of your quizzes\n" +
 		"<strong>/get_my_id</strong> - list all of your quizzes"
 
@@ -148,7 +148,7 @@ func confirmQnsRemove(
 	questionsMap3 map[string]bool,
 ) bool {
 
-	var msgCompilation string = ""
+	var msgCompilation string = "QUESTIONS TO REMOVE:\n"
 	var nextQn string = ""
 
 	var haveTossed bool = false
@@ -337,7 +337,7 @@ func main() {
 
 				// Create new user quizzes collection
 				_, err2 := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc("demo quiz").Set(ctx, map[string]interface{}{
-					"numQns":                       "1",
+					"numQns":                       1,
 					"score":                        "none",
 					"this is a demo quiz question": "this is a demo quiz answer",
 				})
@@ -365,11 +365,13 @@ func main() {
 					sendHelpMessage(update.Message.Chat.ID, bot)
 				case "add_quiz":
 
-					quizTitle := Parser(update.Message.Text)
+					quizTitle := commandParse(update.Message.Text, "add_quiz")
 
 					fmt.Println("SHOW QUIZ TITLE: " + quizTitle)
 
-					if len(quizTitle) < 1 {
+					paramCharLen := len(quizTitle)
+
+					if paramCharLen < 1 {
 
 						sendSimpleMsg(
 							update.Message.Chat.ID,
@@ -542,11 +544,11 @@ func main() {
 							update.Message.Chat.ID,
 							"Please include a quiz name with this command.\n"+
 								"Spaces in the quiz name are allowed.\n"+
-								"e.g. `/add_qns demo quiz`",
+								"e.g. `/remove_qns demo quiz`",
 							bot,
 						)
 					}
-					case "delete_quiz": 
+				case "delete_quiz":
 					// parse quiz name
 					quizName = commandParse(update.Message.Text, "delete_quiz")
 					paramCharLen := len(quizName)
@@ -558,16 +560,16 @@ func main() {
 						doc, err := docRef.Get(ctx)
 						if doc.Exists() {
 							docRef.Delete(ctx)
-						} 
+						}
 
 						if err == nil {
-							msg.Text = "Successfully deleted quiz: "  + quizName  
+							msg.Text = "Successfully deleted quiz: " + quizName
 						}
 
 						if err != nil {
 							msg.Text = "Quiz could not be found. Error deleting quiz: " + quizName
 						}
-							
+
 						if _, err := bot.Send(msg); err != nil {
 							log.Panic(err)
 						}
@@ -693,6 +695,8 @@ func main() {
 						log.Panic(err)
 					}
 
+					botState = "idle"
+
 				default:
 					quizName = update.Message.Text
 					docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizName)
@@ -727,7 +731,7 @@ func main() {
 						if numQns == 0 {
 							sendSimpleMsg(
 								update.Message.Chat.ID,
-								"This quiz has no questions to try!",
+								"This quiz has no questions to try! Please enter another quiz name.",
 								bot,
 							)
 						} else {
@@ -876,7 +880,7 @@ func main() {
 						if numQns == 0 {
 							sendSimpleMsg(
 								update.Message.Chat.ID,
-								"This quiz has no questions to try!",
+								"This quiz has no questions to try! Please enter another quiz name.",
 								bot,
 							)
 						} else {
@@ -1019,6 +1023,9 @@ func main() {
 			case "add_qns_Qn":
 				switch update.Message.Text {
 				case "Exit":
+					if inputExpected == "ans" {
+						delete(questionsMap1, questionText)
+					}
 
 					questionsMap1["score"] = "none"
 
@@ -1042,7 +1049,7 @@ func main() {
 					}
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-					msg.Text = "Questions added to quiz!"
+					msg.Text = "Questions with answer inputs added to quiz!"
 					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 
 					if _, err := bot.Send(msg); err != nil {
