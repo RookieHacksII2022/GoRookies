@@ -38,13 +38,13 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 	msg.ParseMode = "HTML"
 	msg.Text = "I understand the following commands: \n" +
 		"<strong>/help</strong>  - get list of commands\n" +
-		"<strong>/addQuiz <i>quiz_name</i></strong> - add a new quiz\n" +
-		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
-		"<strong>/removeQns <i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
-		"<strong>/tryQuiz</strong> - try a selected quiz\n" +
-		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-		"<strong>/listQuizzes</strong> - list all of your quizzes\n" +
-		"<strong>/getMyId</strong> - list all of your quizzes"
+		"<strong>/add_quiz<i>quiz_name</i></strong> - add a new quiz\n" +
+		"<strong>/add_qns<i>quiz_name</i></strong> - add questions to a selected quiz\n" +
+		"<strong>/remove_qns<i>quiz_name</i></strong> - remove questions from a selected quiz\n" +
+		"<strong>/try_quiz</strong> - try a selected quiz\n" +
+		"<strong>/delete_quiz<i>quiz_name</i></strong> - delete a selected quiz\n" +
+		"<strong>/list_quizzes</strong> - list all of your quizzes\n" +
+		"<strong>/get_my_id</strong> - list all of your quizzes"
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
@@ -363,7 +363,7 @@ func main() {
 				switch update.Message.Command() {
 				case "help":
 					sendHelpMessage(update.Message.Chat.ID, bot)
-				case "addQuiz":
+				case "add_quiz":
 
 					quizTitle := Parser(update.Message.Text)
 
@@ -403,9 +403,9 @@ func main() {
 					}
 					botState = "idle"
 
-				case "addQns":
+				case "add_qns":
 					// parse quiz name
-					quizName = commandParse(update.Message.Text, "addQns")
+					quizName = commandParse(update.Message.Text, "add_qns")
 
 					fmt.Println("SEARCHING FOR QUIZ: " + quizName)
 
@@ -446,7 +446,7 @@ func main() {
 
 							numQns = int(doc.Data()["numQns"].(int64))
 
-							botState = "addQns_Qn"
+							botState = "add_qns_Qn"
 							inputExpected = "qn"
 
 						} else {
@@ -461,13 +461,13 @@ func main() {
 							update.Message.Chat.ID,
 							"Please include a quiz name with this command.\n"+
 								"Spaces in the quiz name are allowed.\n"+
-								"e.g. `/addQns demo quiz`",
+								"e.g. `/add_qns demo quiz`",
 							bot,
 						)
 					}
-				case "removeQns":
+				case "remove_qns":
 					// parse quiz name
-					quizName = commandParse(update.Message.Text, "removeQns")
+					quizName = commandParse(update.Message.Text, "remove_qns")
 
 					fmt.Println("SEARCHING FOR QUIZ: " + quizName)
 
@@ -528,7 +528,7 @@ func main() {
 								qnsRemaining--
 
 								numQns = 0
-								botState = "removeQns"
+								botState = "remove_qns"
 							}
 						} else {
 							sendSimpleMsg(
@@ -542,7 +542,7 @@ func main() {
 							update.Message.Chat.ID,
 							"Please include a quiz name with this command.\n"+
 								"Spaces in the quiz name are allowed.\n"+
-								"e.g. `/addQns demo quiz`",
+								"e.g. `/add_qns demo quiz`",
 							bot,
 						)
 					}
@@ -606,7 +606,7 @@ func main() {
 						log.Panic(err)
 					}
 
-				case "getMyId":
+				case "get_my_id":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
 					msg.Text = "Here is your user info: \n" +
@@ -618,7 +618,7 @@ func main() {
 						log.Panic(err)
 					}
 
-				case "tryQuiz":
+				case "try_quiz":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.ParseMode = "HTML"
 					msg.Text = "Would you like to try your own quiz or a friend's quiz?"
@@ -628,7 +628,7 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "tryQuiz_select"
+					botState = "try_quiz_select"
 
 				default:
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -640,7 +640,7 @@ func main() {
 					}
 				}
 
-			case "tryQuiz_select":
+			case "try_quiz_select":
 				switch update.Message.Text {
 				case "My own quiz":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -657,13 +657,13 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "tryQuiz_myQuiz"
+					botState = "try_quiz_myQuiz"
 					tryingMyQuiz = true
 
 				case "A friend's quiz":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Please input your friend's user id number.\n" +
-						"Your friend can get their id number using the <strong>/getMyId</strong> command.\n" +
+						"Your friend can get their id number using the <strong>/get_my_id</strong> command.\n" +
 						"(Press <strong>Cancel</strong> to exit)"
 					msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
 						tgbotapi.NewKeyboardButtonRow(
@@ -676,13 +676,13 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "tryQuiz_friend"
+					botState = "try_quiz_friend"
 					tryingMyQuiz = false
 
 				default:
 
 				}
-			case "tryQuiz_myQuiz":
+			case "try_quiz_myQuiz":
 				switch update.Message.Text {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -764,7 +764,7 @@ func main() {
 							// send first question
 							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
 
-							botState = "tryQuiz_quizAttempt"
+							botState = "try_quiz_quizAttempt"
 							inputExpected = "post-qn"
 						}
 					} else {
@@ -776,7 +776,7 @@ func main() {
 					}
 				}
 
-			case "tryQuiz_friend":
+			case "try_quiz_friend":
 				switch update.Message.Text {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -825,7 +825,7 @@ func main() {
 							log.Panic(err)
 						}
 
-						botState = "tryQuiz_friendQuiz"
+						botState = "try_quiz_friendQuiz"
 
 					} else {
 						sendSimpleMsg(
@@ -836,7 +836,7 @@ func main() {
 					}
 				}
 
-			case "tryQuiz_friendQuiz":
+			case "try_quiz_friendQuiz":
 				switch update.Message.Text {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -912,7 +912,7 @@ func main() {
 							// send first question
 							sendQuestion(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap2)
 
-							botState = "tryQuiz_quizAttempt"
+							botState = "try_quiz_quizAttempt"
 							inputExpected = "post-qn"
 						}
 					} else {
@@ -923,7 +923,7 @@ func main() {
 						)
 					}
 				}
-			case "tryQuiz_quizAttempt":
+			case "try_quiz_quizAttempt":
 				switch inputExpected {
 				case "post-qn":
 					switch update.Message.Text {
@@ -1016,7 +1016,7 @@ func main() {
 				default:
 
 				}
-			case "addQns_Qn":
+			case "add_qns_Qn":
 				switch update.Message.Text {
 				case "Exit":
 
@@ -1064,7 +1064,7 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "addQns_cancel"
+					botState = "add_qns_cancel"
 
 				default:
 					if inputExpected == "qn" {
@@ -1097,7 +1097,7 @@ func main() {
 
 				}
 
-			case "addQns_cancel":
+			case "add_qns_cancel":
 				switch update.Message.Text {
 				case "Yes":
 					// cancel all changes
@@ -1124,12 +1124,12 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "addQns_Qn"
+					botState = "add_qns_Qn"
 
 				default:
 				}
 
-			case "removeQns":
+			case "remove_qns":
 				switch update.Message.Text {
 				case "Keep":
 					// check for next qn to send
@@ -1140,7 +1140,7 @@ func main() {
 						haveTossed := confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
 
 						if haveTossed {
-							botState = "removeQns_confirm"
+							botState = "remove_qns_confirm"
 						} else {
 							botState = "idle"
 						}
@@ -1159,7 +1159,7 @@ func main() {
 						haveTossed := confirmQnsRemove(update.Message.Chat.ID, qnsRemaining, bot, questionsMap1, questionsMap3)
 
 						if haveTossed {
-							botState = "removeQns_confirm"
+							botState = "remove_qns_confirm"
 						} else {
 							botState = "idle"
 						}
@@ -1180,12 +1180,12 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "removeQns_cancel"
+					botState = "remove_qns_cancel"
 
 				default:
 				}
 
-			case "removeQns_cancel":
+			case "remove_qns_cancel":
 				switch update.Message.Text {
 				case "Yes":
 					// cancel all changes
@@ -1213,12 +1213,12 @@ func main() {
 						log.Panic(err)
 					}
 
-					botState = "removeQns"
+					botState = "remove_qns"
 
 				default:
 				}
 
-			case "removeQns_confirm":
+			case "remove_qns_confirm":
 				switch update.Message.Text {
 				case "Yes":
 					// update all the listed questions to remove in firebase
