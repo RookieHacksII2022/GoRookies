@@ -18,7 +18,9 @@ import (
 )
 
 func commandParse(msgTxt string, keyword string) string {
-	if strings.Contains(msgTxt, "/"+keyword+" ") {
+	if strings.Contains(msgTxt, "/"+keyword+"@go_quiz_test_bot ") {
+		return strings.Replace(msgTxt, "/"+keyword+"@go_quiz_test_bot ", "", 1)
+	} else if strings.Contains(msgTxt, "/"+keyword+" ") {
 		return strings.Replace(msgTxt, "/"+keyword+" ", "", 1)
 	} else {
 		return ""
@@ -199,7 +201,10 @@ func confirmQnsRemove(
 	} else {
 		msg2 := tgbotapi.NewMessage(chatID, "")
 		msg2.Text = "No questions selected for removal"
-		msg2.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+		msg2.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+			RemoveKeyboard: true,
+			Selective:      false,
+		}
 
 		if _, err := bot.Send(msg2); err != nil {
 			log.Panic(err)
@@ -283,13 +288,19 @@ func main() {
 			continue
 		}
 
-		currentUsername = update.Message.From.UserName
-		currentUserID = fmt.Sprint(update.Message.From.ID)
+		if currentUserID == "" {
+			currentUserID = fmt.Sprint(update.Message.From.ID)
+		}
+		if currentUsername == "" {
+			currentUsername = update.Message.From.UserName
+		}
 
 		fmt.Printf("[%s, %s] %s\n", currentUsername, currentUserID, update.Message.Text)
 
 		if update.Message.IsCommand() && update.Message.Command() == "start" {
 			// Check if the focus user id is already in the USERS collection, else create new user
+			currentUsername = update.Message.From.UserName
+			currentUserID = fmt.Sprint(update.Message.From.ID)
 
 			docRef := client.Collection("USERS").Doc(currentUserID)
 			doc, err := docRef.Get(ctx)
@@ -326,6 +337,7 @@ func main() {
 				}
 
 			} else {
+
 				// Create new user document
 				_, err := client.Collection("USERS").Doc(currentUserID).Set(ctx, map[string]interface{}{
 					"username": currentUsername,
@@ -689,7 +701,10 @@ func main() {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Cancelling quiz attempt"
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -785,7 +800,10 @@ func main() {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Cancelling quiz attempt"
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -845,7 +863,10 @@ func main() {
 				case "Cancel":
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Cancelling quiz attempt"
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -939,7 +960,10 @@ func main() {
 					case "End Quiz":
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 						msg.Text = "Cancelling quiz attempt"
-						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+						msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+							RemoveKeyboard: true,
+							Selective:      false,
+						}
 
 						if _, err := bot.Send(msg); err != nil {
 							log.Panic(err)
@@ -966,7 +990,10 @@ func main() {
 					case "End Quiz":
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 						msg.Text = "Cancelling quiz attempt"
-						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+						msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+							RemoveKeyboard: true,
+							Selective:      false,
+						}
 
 						if _, err := bot.Send(msg); err != nil {
 							log.Panic(err)
@@ -1008,7 +1035,10 @@ func main() {
 
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 						msg.Text = "You scored " + fmt.Sprint(scoreInt) + "/" + fmt.Sprint(numQns) + "\n" + endMsg
-						msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+						msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+							RemoveKeyboard: true,
+							Selective:      false,
+						}
 
 						if _, err := bot.Send(msg); err != nil {
 							log.Panic(err)
@@ -1050,7 +1080,10 @@ func main() {
 
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Questions with answer inputs added to quiz!"
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -1110,7 +1143,10 @@ func main() {
 					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Changes to quiz cancelled."
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -1198,7 +1234,10 @@ func main() {
 					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Changes to quiz cancelled."
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -1250,7 +1289,10 @@ func main() {
 					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Removed selected questions."
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
@@ -1268,7 +1310,10 @@ func main() {
 					// cancel all changes
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 					msg.Text = "Changes to quiz cancelled."
-					msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+					msg.ReplyMarkup = tgbotapi.ReplyKeyboardRemove{
+						RemoveKeyboard: true,
+						Selective:      false,
+					}
 
 					if _, err := bot.Send(msg); err != nil {
 						log.Panic(err)
