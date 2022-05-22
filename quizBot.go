@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strings"
 
 	firebase "firebase.google.com/go"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
@@ -40,7 +40,7 @@ func sendHelpMessage(chatID int64, bot *tgbotapi.BotAPI) {
 		"<strong>/addQns <i>quiz_name</i></strong> - add questions to a selected quiz\n" +
 		"<strong>/tryQuiz <i>quiz_name</i></strong> - try a selected quiz\n" +
 		"<strong>/deleteQuiz <i>quiz_name</i></strong> - delete a selected quiz\n" +
-		"<strong>/listQuizzes</strong> - list all ofyour quizzes"
+		"<strong>/listQuizzes</strong> - list all of your quizzes"
 	msg.ParseMode = "HTML"
 
 	if _, err := bot.Send(msg); err != nil {
@@ -58,6 +58,11 @@ var yesNoKeyboard = tgbotapi.NewReplyKeyboard(
 )
 
 func main() {
+	// check for env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	// init firebase client
 	opt := option.WithCredentialsFile("firebase_service_acct.json")
@@ -181,6 +186,46 @@ func main() {
 				switch update.Message.Command() {
 				case "help":
 					sendHelpMessage(update.Message.Chat.ID, bot)
+				case "addQuiz":
+
+					quizTitle := Parser(update.Message.Text)
+
+					fmt.Println("SHOW QUIZ TITLE: " + quizTitle)
+
+					if len(quizTitle) < 1 {
+
+						sendSimpleMsg(
+							update.Message.Chat.ID,
+							"Quiz title cannot be empty, please try again!",
+							bot,
+						)
+
+					} else {
+
+						docRef := client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle)
+						_, err := docRef.Get(ctx)
+						if err == nil {
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"Quiz title exists",
+								bot,
+							)
+						} else {
+							_, _ = client.Collection("USERS").Doc(currentUserID).Collection("QUIZZES").Doc(quizTitle).Set(ctx, map[string]interface{}{
+								"numQns": "0",
+								"score":  "none",
+							})
+
+							sendSimpleMsg(
+								update.Message.Chat.ID,
+								"New Quiz Title: "+quizTitle+" is added into your collection.",
+								bot,
+							)
+						}
+
+					}
+					botState = "idle"
+
 				case "addQns":
 					// parse quiz name
 					quizName = commandParse(update.Message.Text, "addQns")
@@ -444,6 +489,6 @@ func main() {
 }
 
 func Parser(str string) string {
-	arr := strings.Split(str, " ")
+	arr := strings.SplitN(str, " ", 2)
 	return arr[1]
 }
